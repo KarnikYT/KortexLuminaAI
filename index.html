@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KortexLumina AI</title>
+  <style>
+    :root {
+      --bg-dark: #171717;
+      --sidebar-bg: #212121;
+      --card-bg: #2f2f2f;
+      --accent: #10a37f;
+      --accent-hover: #1a7f64;
+      --text: #ececec;
+      --text-muted: #b4b4b4;
+      --border: #424242;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+
+    /* Login Screen */
+    #auth-container {
+      position: fixed; inset: 0; background: var(--bg-dark); z-index: 1000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px;
+    }
+    #auth-container input {
+      padding: 10px 15px; width: 280px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--card-bg); color: var(--text); outline: none;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      width: 260px; background-color: var(--sidebar-bg); display: flex; flex-direction: column;
+      border-right: 1px solid var(--border); padding: 10px; gap: 10px;
+    }
+    .section-title { font-size: 0.75rem; color: var(--text-muted); font-weight: bold; margin-top: 10px; text-transform: uppercase; }
+    .btn {
+      padding: 10px; background: var(--accent); color: white; border: none; border-radius: 6px;
+      cursor: pointer; font-weight: bold; width: 100%; text-align: center;
+    }
+    .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-secondary:hover { background: var(--card-bg); }
+
+    .list-container { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .item-btn {
+      padding: 10px; border-radius: 6px; background: transparent; color: var(--text);
+      text-align: left; border: none; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .item-btn:hover { background: var(--card-bg); }
+    .item-btn.active { background: var(--card-bg); font-weight: bold; }
+
+    /* Main Chat Area */
+    #main-content { flex: 1; display: flex; flex-direction: column; height: 100vh; }
+    #chat-header {
+      padding: 15px; border-bottom: 1px solid var(--border); display: flex;
+      justify-content: space-between; align-items: center; background: var(--bg-dark);
+    }
+    #messages-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+    
+    .message { max-width: 80%; padding: 12px 16px; border-radius: 12px; line-height: 1.5; font-size: 0.95rem; }
+    .message.user { align-self: flex-end; background: #2a2a2a; border-bottom-right-radius: 2px; }
+    .message.ai { align-self: flex-start; background: var(--card-bg); border-bottom-left-radius: 2px; }
+    .message .sender-name { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
+
+    /* Input Bar */
+    #input-form { padding: 15px; background: var(--bg-dark); border-top: 1px solid var(--border); display: flex; gap: 10px; }
+    #message-input {
+      flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--card-bg); color: var(--text); outline: none;
+    }
+    #message-input:focus { border-color: var(--accent); }
+    
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- AUTH SCREEN -->
+  <div id="auth-container">
+    <h2>KortexLumina AI</h2>
+    <p style="color: var(--text-muted);">Přihlášení / Registrace</p>
+    <input type="email" id="auth-email" placeholder="E-mail">
+    <input type="password" id="auth-password" placeholder="Heslo">
+    <button class="btn" id="btn-login">Přihlásit se</button>
+    <button class="btn btn-secondary" id="btn-register">Vytvořit účet</button>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <button class="btn" id="btn-new-chat">+ Nový chat</button>
+    <button class="btn btn-secondary" id="btn-new-group">+ Skupinový chat</button>
+    
+    <div class="section-title">Moje Projekty</div>
+    <button class="btn btn-secondary" id="btn-new-project">+ Nový Projekt</button>
+    <div class="list-container" id="projects-list"></div>
+
+    <div class="section-title">Chaty</div>
+    <div class="list-container" id="chats-list"></div>
+
+    <div style="border-top: 1px solid var(--border); padding-top: 10px;">
+      <span id="user-display" style="font-size: 0.85rem; color: var(--text-muted);"></span>
+      <button class="btn btn-secondary" id="btn-logout" style="margin-top: 5px;">Odhlásit se</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="main-content">
+    <div id="chat-header">
+      <h3 id="current-chat-title">Vyberte nebo vytvořte chat</h3>
+      <button class="btn btn-secondary" id="btn-share-group" style="width: auto; display: none;">+ Pozvat e-mailem</button>
+    </div>
+
+    <div id="messages-container"></div>
+
+    <form id="input-form">
+      <input type="text" id="message-input" placeholder="Napište zprávu pro AI nebo skupinu..." autocomplete="off" disabled>
+      <button type="submit" class="btn" id="btn-send" style="width: auto;" disabled>Odeslat</button>
+    </form>
+  </div>
+
+  <!-- FIREBASE & LOGIC -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, doc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCItS6KjESqOooqYga0nc75tutD8B6qZK4",
+      authDomain: "busepanelmaker.firebaseapp.com",
+      projectId: "busepanelmaker",
+      storageBucket: "busepanelmaker.firebasestorage.app",
+      messagingSenderId: "784627585208",
+      appId: "1:784627585208:web:ff5520f531a15c7107644d",
+      measurementId: "G-2BRSQR2W3C"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const OPENROUTER_API_KEY = "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";
+    let currentUser = null;
+    let currentChatId = null;
+    let currentChatData = null;
+    let unsubscribeMessages = null;
+
+    // AUTH UI
+    document.getElementById('btn-login').onclick = () => {
+      const email = document.getElementById('auth-email').value;
+      const pass = document.getElementById('auth-password').value;
+      signInWithEmailAndPassword(auth, email, pass).catch(e => alert("Chyba: " + e.message));
+    };
+
+    document.getElementById('btn-register').onclick = () => {
+      const email = document.getElementById('auth-email').value;
+      const pass = document.getElementById('auth-password').value;
+      createUserWithEmailAndPassword(auth, email, pass).catch(e => alert("Chyba: " + e.message));
+    };
+
+    document.getElementById('btn-logout').onclick = () => signOut(auth);
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      if (user) {
+        document.getElementById('auth-container').classList.add('hidden');
+        document.getElementById('user-display').textContent = user.email;
+        loadChatsAndProjects();
+      } else {
+        document.getElementById('auth-container').classList.remove('hidden');
+      }
+    });
+
+    // CHATS & PROJECTS MANAGEMENT
+    async function createChat(type = 'direct', projectId = null) {
+      const title = prompt(type === 'group' ? "Název skupinového chatu:" : (projectId ? "Název chatu v projektu:" : "Název nového chatu:"));
+      if (!title) return;
+
+      const docRef = await addDoc(collection(db, "chats"), {
+        title: title,
+        type: type,
+        owner: currentUser.email,
+        members: [currentUser.email],
+        projectId: projectId,
+        createdAt: serverTimestamp()
+      });
+      selectChat(docRef.id, { title, type, members: [currentUser.email] });
+    }
+
+    document.getElementById('btn-new-chat').onclick = () => createChat('direct');
+    document.getElementById('btn-new-group').onclick = () => createChat('group');
+
+    document.getElementById('btn-new-project').onclick = async () => {
+      const title = prompt("Název nového projektu:");
+      if (!title) return;
+      await addDoc(collection(db, "projects"), {
+        title: title,
+        owner: currentUser.email,
+        createdAt: serverTimestamp()
+      });
+    };
+
+    function loadChatsAndProjects() {
+      // Načíst Projekty
+      const qProjects = query(collection(db, "projects"), where("owner", "==", currentUser.email));
+      onSnapshot(qProjects, (snapshot) => {
+        const list = document.getElementById('projects-list');
+        list.innerHTML = '';
+        snapshot.forEach(doc => {
+          const btn = document.createElement('button');
+          btn.className = 'item-btn';
+          btn.textContent = "📁 " + doc.data().title;
+          btn.onclick = () => createChat('direct', doc.id);
+          list.appendChild(btn);
+        });
+      });
+
+      // Načíst Chaty
+      const qChats = query(collection(db, "chats"), where("members", "array-contains", currentUser.email));
+      onSnapshot(qChats, (snapshot) => {
+        const list = document.getElementById('chats-list');
+        list.innerHTML = '';
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          const btn = document.createElement('button');
+          btn.className = 'item-btn';
+          btn.textContent = (data.type === 'group' ? "👥 " : "💬 ") + data.title;
+          btn.onclick = () => selectChat(docSnap.id, data);
+          list.appendChild(btn);
+        });
+      });
+    }
+
+    // SELECT CHAT
+    function selectChat(chatId, data) {
+      currentChatId = chatId;
+      currentChatData = data;
+      document.getElementById('current-chat-title').textContent = data.title;
+      document.getElementById('message-input').disabled = false;
+      document.getElementById('btn-send').disabled = false;
+
+      const shareBtn = document.getElementById('btn-share-group');
+      if (data.type === 'group') {
+        shareBtn.style.display = 'block';
+        shareBtn.onclick = () => inviteUserToGroup(chatId);
+      } else {
+        shareBtn.style.display = 'none';
+      }
+
+      listenToMessages(chatId);
+    }
+
+    async function inviteUserToGroup(chatId) {
+      const email = prompt("Zadejte e-mail kamaráda, kterého chcete přidat:");
+      if (!email) return;
+      await updateDoc(doc(db, "chats", chatId), {
+        members: arrayUnion(email)
+      });
+      alert("Uživatel byl přidán do skupiny!");
+    }
+
+    // MESSAGING
+    function listenToMessages(chatId) {
+      if (unsubscribeMessages) unsubscribeMessages();
+      const q = query(collection(db, "chats", chatId, "messages"), orderBy("createdAt", "asc"));
+      
+      unsubscribeMessages = onSnapshot(q, (snapshot) => {
+        const container = document.getElementById('messages-container');
+        container.innerHTML = '';
+        snapshot.forEach(doc => {
+          const msg = doc.data();
+          const div = document.createElement('div');
+          div.className = `message ${msg.sender === currentUser.email ? 'user' : 'ai'}`;
+          div.innerHTML = `<div class="sender-name">${msg.sender}</div>${msg.text}`;
+          container.appendChild(div);
+        });
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+
+    document.getElementById('input-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('message-input');
+      const text = input.value.trim();
+      if (!text || !currentChatId) return;
+
+      input.value = '';
+
+      // Uložit uživatelskou zprávu
+      await addDoc(collection(db, "chats", currentChatId, "messages"), {
+        sender: currentUser.email,
+        text: text,
+        createdAt: serverTimestamp()
+      });
+
+      // Pokud zpráva začíná na @ai nebo jde o běžný chat, AI odpoví
+      if (currentChatData.type === 'direct' || text.toLowerCase().includes('@ai')) {
+        callAI(text);
+      }
+    };
+
+    async function callAI(userPrompt) {
+      try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "deepseek/deepseek-r1:free",
+            messages: [{ role: "user", content: userPrompt }]
+          })
+        });
+
+        const data = await response.json();
+        const aiText = data.choices?.[0]?.message?.content || "Omlouvám se, odpověď se nepodařilo vygenerovat.";
+
+        await addDoc(collection(db, "chats", currentChatId, "messages"), {
+          sender: "KortexLumina AI",
+          text: aiText,
+          createdAt: serverTimestamp()
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>
